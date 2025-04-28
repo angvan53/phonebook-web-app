@@ -17,7 +17,7 @@ Parameters:
   KeyName:
     Description: Please enter your key pair
     Type: AWS::EC2::KeyPair::KeyName
-    Default: angvan.pem
+    Default: first.key
 
   LatestAmiId:
     Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
@@ -98,7 +98,7 @@ Resources:
               echo "${MyDBURI}" > /home/ec2-user/dbserver.endpoint
               cd /home/ec2-user
               TOKEN=$(aws --region=us-east-1 ssm get-parameter --name /ondia/phonebook/token --with-decryption --query 'Parameter.Value' --output text)
-              git clone https://$TOKEN@github.com/angvan53/phonebook-web-app.git
+               git clone https://$TOKEN@github.com/angvan53/phonebook-web-app.git
               python3 /home/ec2-user/phonebook-web-app/solution/phonebook-app.py
             - MyDBURI: !GetAtt rDSInstance.Endpoint.Address
 
