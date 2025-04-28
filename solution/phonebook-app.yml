@@ -10,6 +10,19 @@ Description: |
   environment on EC2, and to deploy Phonebook Application on Flask Server after downloading the app code 
   from Github repository.
 Parameters:
+  Subnets:
+    Description: Choose your subnets
+    Type: List<AWS::EC2::Subnet::Id>
+
+  KeyName:
+    Description: Please enter your key pair
+    Type: AWS::EC2::KeyPair::KeyName
+    Default: first.key.pem
+
+  LatestAmiId:
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-6.1-x86_64"
+
   myDbname:
     Description: enter your dbname
     Type: AWS::SSM::Parameter::Value<String>
@@ -20,45 +33,74 @@ Parameters:
     Type: AWS::EC2::VPC::Id
 
 Resources:
-  autoScalingGroup:
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      DesiredCapacity: 1
+      HealthCheckGracePeriod: 300
+      HealthCheckType: ELB
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LT
+        Version: !GetAtt LT.LatestVersionNumber
+      MaxSize: 3
+      MinSize: 1
+      TargetGroupARNs:
+        - !Ref targetGroup
+      VPCZoneIdentifier: !Ref Subnets # not array
 
-  applicationLoadBalancerListener:
+  ALBListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      DefaultActions: # Required
+        - TargetGroupArn: !Ref targetGroup
+          Type: forward
+      LoadBalancerArn: !Ref ALB # Required
+      Port: 80 # Required
+      Protocol: HTTP # Required
 
-  applicationLoadBalancer:
+  ALB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      IpAddressType: ipv4
+      Scheme: internet-facing
+      SecurityGroups:
+        - !GetAtt aLBSecGrp.GroupId
+      Subnets: !Ref Subnets
+      Type: application
 
   LT:
-  Type: AWS::EC2::LaunchTemplate
-  Properties:
-    LaunchTemplateData:
-      ImageId: !Ref LatestAmiId
-      InstanceType: t2.micro
-      IamInstanceProfile:
-        Name: !Ref myInstanceProfile
-      KeyName: !Ref KeyName
-      SecurityGroupIds:
-        - !GetAtt eC2SecGrp.GroupId
-      TagSpecifications:
-        - ResourceType: instance
-          Tags:
-            - Key: Name
-              Value: !Sub Web Server of ${AWS::StackName} Stack
-      UserData:
-        Fn::Base64: !Sub
-          - |
-            #!/bin/bash
-            dnf update -y
-            dnf install python3 -y
-            dnf install python-pip -y
-            pip3 install Flask==2.3.3
-            pip3 install Flask-MySql
-            pip3 install boto3
-            dnf install git -y
-            echo "${MyDBURI}" > /home/ec2-user/dbserver.endpoint
-            cd /home/ec2-user
-            TOKEN=$(aws --region=us-east-1 ssm get-parameter --name /ondia/phonebook/token --with-decryption --query 'Parameter.Value' --output text)
-            git clone https://$TOKEN@github.com/angvan-clarusway/phonebook-web-app.git
-            python3 /home/ec2-user/phonebook-web-app/solution/phonebook-app.py
-          - MyDBURI: !GetAtt rDSInstance.Endpoint.Address
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref LatestAmiId
+        InstanceType: t2.micro
+        IamInstanceProfile:
+          Name: !Ref myInstanceProfile
+        KeyName: !Ref KeyName
+        SecurityGroupIds:
+          - !GetAtt eC2SecGrp.GroupId
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - Key: Name
+                Value: !Sub Web Server of ${AWS::StackName} Stack
+        UserData:
+          Fn::Base64: !Sub
+            - |
+              #!/bin/bash
+              dnf update -y
+              dnf install python3 -y
+              dnf install python-pip -y
+              pip3 install Flask==2.3.3
+              pip3 install Flask-MySql
+              pip3 install boto3
+              dnf install git -y
+              echo "${MyDBURI}" > /home/ec2-user/dbserver.endpoint
+              cd /home/ec2-user
+              TOKEN=$(aws --region=us-east-1 ssm get-parameter --name /ondia/phonebook/token --with-decryption --query 'Parameter.Value' --output text)
+              git clone https://$TOKEN@github.com/angvan53/phonebook-web-app.git
+              python3 /home/ec2-user/phonebook-web-app/solution/phonebook-app.py
+            - MyDBURI: !GetAtt rDSInstance.Endpoint.Address
 
   targetGroup:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
@@ -153,3 +195,8 @@ Resources:
       VpcId: !Ref myVPC
 
 Outputs:
+  WebsiteURL:
+    Value: !Sub
+      - http://${ALBAddress}
+      - ALBAddress: !GetAtt ALB.DNSName
+    Description: Phonebook Application Load Balancer URL
