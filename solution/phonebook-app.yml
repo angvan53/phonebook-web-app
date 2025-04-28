@@ -64,7 +64,7 @@ Resources:
       IpAddressType: ipv4
       Scheme: internet-facing
       SecurityGroups:
-        - !GetAtt aLBSecGrp.GroupId
+        - !GetAtt aLBSecGroup.GroupId
       Subnets: !Ref Subnets
       Type: application
 
@@ -78,7 +78,7 @@ Resources:
           Name: !Ref myInstanceProfile
         KeyName: !Ref KeyName
         SecurityGroupIds:
-          - !GetAtt eC2SecGrp.GroupId
+          - !GetAtt eC2SecGroup.GroupId
         TagSpecifications:
           - ResourceType: instance
             Tags:
