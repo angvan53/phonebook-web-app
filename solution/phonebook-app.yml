@@ -17,7 +17,7 @@ Parameters:
   KeyName:
     Description: Please enter your key pair
     Type: AWS::EC2::KeyPair::KeyName
-    Default: angvan.pem
+    Default: first.key.pem
 
   LatestAmiId:
     Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
